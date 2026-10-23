@@ -1,0 +1,9 @@
+{
+  "name": "siser/catalogo-productos",
+  "require": {
+    "php": ">=8.1",
+    "ext-zip": "*",
+    "dompdf/dompdf": "^3.1"
+  },
+  "autoload": { "psr-4": { "App\\": "src/" } }
+}

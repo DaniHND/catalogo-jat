@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "^(config\.php|composer\.(json|lock))$">
+  Require all denied
+</FilesMatch>
