@@ -98,6 +98,11 @@ function buildPdf(jsPDF, items, empresa, logo) {
   return doc;
 }
 
+function mensajeWhatsapp(items, empresa) {
+  const lineas = items.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
+  return `*Lista de productos - ${empresa}*\n${fecha()}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}`;
+}
+
 /* ---------- Interfaz ---------- */
 
 async function loadImage(url) {
@@ -141,6 +146,9 @@ function catalogo() {
       this.limit = 40;
     },
     listItems() { return this.list.map(i => ({ ...byCode[i.code], qty: i.qty })); },
+    whatsappUrl() {
+      return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT));
+    },
     guardar() { store('lista', this.list); store('empresa', this.empresa); },
     agregar(p) {
       const qty = Math.max(1, parseInt(this.qtys[p.code]) || 1);
