@@ -39,3 +39,11 @@ Si cambia el PDF, regenera el SQL y las imágenes (requiere Python con PyMuPDF):
 pip install pymupdf
 python scripts/extract_catalog.py "CATALOGO JAT 2023-13Mb 230623.pdf"
 ```
+
+## Versión demo (GitHub Pages)
+
+La carpeta `docs/` contiene una versión estática del catálogo que no necesita PHP ni MySQL: los productos están en `docs/data/products.js`, la lista se guarda en el navegador y el Excel/PDF se generan en el propio navegador.
+
+Para publicarla: *Settings → Pages → Build and deployment → Deploy from a branch → `main` / `/docs` → Save*. Queda en `https://danihnd.github.io/catalogo-jat/`.
+
+Si cambian los productos, regenera `docs/data/products.js` y `docs/img/` desde la base de datos.

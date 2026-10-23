@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catálogo JAT · Demo</title>
+<link rel="icon" href="assets/logo-jat.png">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="data/products.js"></script>
+<script src="app.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800" x-data="catalogo()" x-init="init()">
+<div class="bg-yellow-300 text-slate-900 text-center text-sm py-1.5 px-4">
+  Versión de demostración · la lista se guarda solo en este navegador
+</div>
+<div class="max-w-7xl mx-auto p-4 grid lg:grid-cols-3 gap-4">
+
+  <!-- Búsqueda y resultados -->
+  <section class="lg:col-span-2">
+    <header class="flex items-center gap-3 mb-4">
+      <img src="assets/logo-jat.png" alt="JAT" class="h-12 w-auto">
+      <h1 class="text-xl font-bold">Catálogo de productos</h1>
+    </header>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <input x-model="q" @input.debounce.200ms="buscar()" type="search" placeholder="Buscar por código o nombre…"
+             class="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select x-model="type" @change="buscar()" class="rounded-lg border border-slate-300 px-3 py-2">
+        <option value="">Todos los tipos</option>
+        <template x-for="t in types" :key="t"><option :value="t" x-text="t"></option></template>
+      </select>
+    </div>
+
+    <p class="text-sm text-slate-500 mb-2" x-text="results.length + ' productos'"></p>
+    <p x-show="results.length === 0" class="text-slate-500">Sin resultados.</p>
+    <div class="grid sm:grid-cols-2 gap-3">
+      <template x-for="p in results.slice(0, limit)" :key="p.code">
+        <article class="bg-white rounded-xl shadow-sm p-3 flex gap-3">
+          <div class="w-24 h-24 shrink-0 rounded-lg bg-white border border-slate-100 overflow-hidden flex items-center justify-center text-slate-400 text-xs">
+            <img x-show="p.image" :src="p.image ? 'img/' + p.image : ''" :alt="p.name" loading="lazy" class="w-full h-full object-contain">
+            <span x-show="!p.image">Sin imagen</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-slate-500" x-text="p.code + ' · ' + p.type"></p>
+            <h3 class="font-semibold leading-tight" x-text="p.name"></h3>
+            <p class="text-sm text-slate-600 line-clamp-2" x-text="p.description"></p>
+            <div class="flex items-center gap-2 mt-2">
+              <input type="number" min="1" x-model.number="qtys[p.code]" placeholder="1"
+                     class="w-16 rounded border border-slate-300 px-2 py-1 text-sm">
+              <button @click="agregar(p)" class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1">Agregar</button>
+            </div>
+          </div>
+        </article>
+      </template>
+    </div>
+    <div class="text-center mt-4" x-show="results.length > limit">
+      <button @click="limit += 40" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2 text-sm">Mostrar más</button>
+    </div>
+  </section>
+
+  <!-- Lista -->
+  <aside class="bg-white rounded-xl shadow-sm p-4 h-fit lg:sticky lg:top-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold">Mi lista <span class="text-slate-500 font-normal" x-text="'(' + list.length + ')'"></span></h2>
+      <button x-show="list.length && !confirmClear" @click="confirmClear = true" class="text-sm text-red-600 hover:underline">Vaciar</button>
+      <span x-show="confirmClear" class="text-sm">
+        ¿Vaciar? <button @click="vaciar()" class="text-red-600 font-semibold hover:underline">Sí</button>
+        · <button @click="confirmClear = false" class="hover:underline">No</button>
+      </span>
+    </div>
+
+    <p x-show="!list.length" class="text-sm text-slate-500">Aún no has agregado productos.</p>
+    <ul class="divide-y">
+      <template x-for="i in listItems()" :key="i.code">
+        <li class="py-2 flex items-center gap-2">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-slate-500" x-text="i.code"></p>
+            <p class="text-sm font-medium truncate" x-text="i.name"></p>
+          </div>
+          <input type="number" min="1" :value="i.qty" @change="actualizar(i.code, $event.target.value)"
+                 class="w-16 rounded border border-slate-300 px-2 py-1 text-sm">
+          <button @click="quitar(i.code)" class="text-red-600 text-lg leading-none" title="Quitar">&times;</button>
+        </li>
+      </template>
+    </ul>
+
+    <div class="mt-4" x-show="list.length">
+      <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>
+      <input id="empresa" x-model="empresa" @input="guardar()" type="text" maxlength="120" placeholder="Escribe el nombre de la empresa"
+             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div class="grid grid-cols-2 gap-2 mt-3" x-show="list.length">
+      <button @click="exportar('xlsx')" :disabled="busy" class="rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 text-sm">Excel</button>
+      <button @click="exportar('pdf')" :disabled="busy" class="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 text-sm">PDF</button>
+    </div>
+    <p x-show="busy" class="text-sm text-slate-500 mt-2">Generando archivo…</p>
+    <p x-show="error" x-text="error" class="text-sm text-red-600 mt-2"></p>
+  </aside>
+</div>
+</body>
+</html>
