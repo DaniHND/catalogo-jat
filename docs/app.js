@@ -21,9 +21,15 @@ function store(key, value) {
 
 /* ---------- Exportación (independiente del DOM para poder probarla) ---------- */
 
+// Líneas de datos del pedido: contacto (si lo hay) y si es para aparcería Pilgrim's.
+function detalles(contacto, pilgrims) {
+  return [contacto ? 'Contacto: ' + contacto : null, "Aparcería Pilgrim's: " + (pilgrims ? 'Sí' : 'No')].filter(Boolean);
+}
+
 // items: [{code, name, type, description, qty, img}] donde img = {dataUrl, ext, width, height} | null
 // logo:  {dataUrl, ext, width, height} | null
-async function buildXlsx(ExcelJS, items, empresa, logo) {
+// info:  líneas de detalles()
+async function buildXlsx(ExcelJS, items, empresa, logo, info = []) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Lista', { views: [{ state: 'frozen', ySplit: 4 }] });
   ws.columns = [16, 30, 16, 45, 18, 10].map(width => ({ width }));
@@ -33,6 +39,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo) {
   ws.getCell('B1').font = { bold: true, size: 14 };
   ws.getCell('B1').alignment = { vertical: 'middle' };
   ws.getCell('B2').value = 'Lista de productos · ' + fecha();
+  ws.getCell('B3').value = info.join(' · ');
   if (logo) {
     const id = wb.addImage({ base64: logo.dataUrl, extension: logo.ext });
     const s = 100 / Math.max(logo.width, logo.height);
@@ -60,7 +67,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo) {
   return wb.xlsx.writeBuffer();
 }
 
-function buildPdf(jsPDF, items, empresa, logo) {
+function buildPdf(jsPDF, items, empresa, logo, info = []) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const W = doc.internal.pageSize.getWidth(), M = 40;
   let x = M;
@@ -71,10 +78,11 @@ function buildPdf(jsPDF, items, empresa, logo) {
   }
   doc.setFont('helvetica', 'bold').setFontSize(16).setTextColor(17, 24, 39).text(empresa, x, 50);
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(85, 85, 85).text('Lista de productos · ' + fecha(), x, 66);
-  doc.setDrawColor(237, 28, 36).setLineWidth(2.5).line(M, 84, W - M, 84);
+  if (info.length) doc.text(info.join('  ·  '), x, 79);
+  doc.setDrawColor(237, 28, 36).setLineWidth(2.5).line(M, 90, W - M, 90);
 
   doc.autoTable({
-    startY: 96,
+    startY: 102,
     margin: { left: M, right: M },
     head: [['Código', 'Imagen', 'Producto', 'Descripción', 'Cant.']],
     body: items.map(it => [it.code, '', it.name + '\n' + it.type, it.description || '', String(it.qty)]),
@@ -98,9 +106,9 @@ function buildPdf(jsPDF, items, empresa, logo) {
   return doc;
 }
 
-function mensajeWhatsapp(items, empresa) {
+function mensajeWhatsapp(items, empresa, info = []) {
   const lineas = items.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
-  return `*Lista de productos - ${empresa}*\n${fecha()}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}`;
+  return `*Lista de productos - ${empresa}*\n${[fecha(), ...info].join('\n')}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}`;
 }
 
 /* ---------- Interfaz ---------- */
@@ -136,8 +144,11 @@ function catalogo() {
     types: [...new Set(all.map(p => p.type))].sort(),
     list: (store('lista') || []).filter(i => byCode[i.code]),
     empresa: store('empresa') || '',
+    contacto: store('contacto') || '',
+    pilgrims: store('pilgrims') === true,
 
     init() {},
+    info() { return detalles(this.contacto.trim(), this.pilgrims); },
     buscar() {
       const words = norm(this.q).split(/\s+/).filter(Boolean);
       this.results = index
@@ -147,9 +158,12 @@ function catalogo() {
     },
     listItems() { return this.list.map(i => ({ ...byCode[i.code], qty: i.qty })); },
     whatsappUrl() {
-      return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT));
+      return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT, this.info()));
     },
-    guardar() { store('lista', this.list); store('empresa', this.empresa); },
+    guardar() {
+      store('lista', this.list); store('empresa', this.empresa);
+      store('contacto', this.contacto); store('pilgrims', this.pilgrims);
+    },
     agregar(p) {
       const qty = Math.max(1, parseInt(this.qtys[p.code]) || 1);
       const found = this.list.find(i => i.code === p.code);
@@ -175,10 +189,10 @@ function catalogo() {
         })));
         const nombre = 'lista-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
         if (format === 'xlsx') {
-          const buf = await buildXlsx(window.ExcelJS, items, empresa, logo);
+          const buf = await buildXlsx(window.ExcelJS, items, empresa, logo, this.info());
           descargar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nombre + '.xlsx');
         } else {
-          descargar(buildPdf(window.jspdf.jsPDF, items, empresa, logo).output('blob'), nombre + '.pdf');
+          descargar(buildPdf(window.jspdf.jsPDF, items, empresa, logo, this.info()).output('blob'), nombre + '.pdf');
         }
       } catch (e) {
         console.error(e);
@@ -190,4 +204,4 @@ function catalogo() {
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { buildXlsx, buildPdf };
+if (typeof module !== 'undefined') module.exports = { buildXlsx, buildPdf, detalles, mensajeWhatsapp };

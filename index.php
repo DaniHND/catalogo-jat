@@ -74,6 +74,13 @@
       <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>
       <input id="empresa" x-model="empresa" @input="guardarEmpresa()" type="text" maxlength="120" placeholder="Escribe el nombre de la empresa"
              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label for="contacto" class="block text-sm font-medium mb-1 mt-3">Nombre de contacto</label>
+      <input id="contacto" x-model="contacto" @input="guardarEmpresa()" type="text" maxlength="120" placeholder="Escribe el nombre del contacto"
+             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label class="flex items-center gap-2 mt-3 text-sm font-medium cursor-pointer">
+        <input type="checkbox" x-model="pilgrims" @change="guardarEmpresa()" class="w-4 h-4 accent-blue-600">
+        Es para aparcería Pilgrim's
+      </label>
     </div>
     <div class="grid grid-cols-2 gap-2 mt-3" x-show="list.length">
       <a :href="exportUrl('xlsx')" class="text-center rounded-lg bg-green-600 hover:bg-green-700 text-white py-2 text-sm">Excel</a>
@@ -90,20 +97,28 @@
 <script>
 function catalogo() {
   return {
-    q: '', type: '', types: [], results: [], list: [], qtys: {}, loading: false, empresa: '',
+    q: '', type: '', types: [], results: [], list: [], qtys: {}, loading: false, empresa: '', contacto: '', pilgrims: false,
     exportUrl(format) {
-      return 'api.php?' + new URLSearchParams({ r: 'export', format, empresa: this.empresa.trim() });
+      return 'api.php?' + new URLSearchParams({
+        r: 'export', format, empresa: this.empresa.trim(), contacto: this.contacto.trim(), pilgrims: this.pilgrims ? '1' : '0',
+      });
     },
     whatsappUrl() {
       const d = new Date(), p = n => String(n).padStart(2, '0');
       const fecha = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
       const empresa = this.empresa.trim() || <?= json_encode((require __DIR__ . '/config.php')['empresa'], JSON_UNESCAPED_UNICODE) ?>;
       const lineas = this.list.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
-      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}`;
+      const contacto = this.contacto.trim() ? `Contacto: ${this.contacto.trim()}\n` : '';
+      const pilgrims = `Aparcería Pilgrim's: ${this.pilgrims ? 'Sí' : 'No'}`;
+      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}`;
       return 'https://wa.me/?text=' + encodeURIComponent(texto);
     },
     guardarEmpresa() {
-      try { localStorage.setItem('empresa', this.empresa); } catch (e) {}
+      try {
+        localStorage.setItem('empresa', this.empresa);
+        localStorage.setItem('contacto', this.contacto);
+        localStorage.setItem('pilgrims', this.pilgrims ? '1' : '');
+      } catch (e) {}
     },
     async api(r, opts = {}) {
       const res = await fetch('api.php?r=' + r, opts);
@@ -115,7 +130,11 @@ function catalogo() {
       return this.api(r, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     },
     async init() {
-      try { this.empresa = localStorage.getItem('empresa') || ''; } catch (e) {}
+      try {
+        this.empresa = localStorage.getItem('empresa') || '';
+        this.contacto = localStorage.getItem('contacto') || '';
+        this.pilgrims = localStorage.getItem('pilgrims') === '1';
+      } catch (e) {}
       this.types = await this.api('types');
       this.list = await this.api('list');
       this.buscar();

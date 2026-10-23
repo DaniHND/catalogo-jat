@@ -7,7 +7,7 @@ use Dompdf\Options;
 
 final class Exporter
 {
-    public function __construct(private string $uploadsDir, private string $empresa, private string $logo) {}
+    public function __construct(private string $uploadsDir, private string $empresa, private string $logo, private string $detalle = '') {}
 
     public function xlsx(array $items): never
     {
@@ -16,7 +16,7 @@ final class Exporter
         $xl->addRow([null, $this->empresa], $logo ? 50 : 24, XlsxWriter::TITLE);
         if ($logo) $xl->addImage($this->logo, 0, 1, 100);
         $xl->addRow([null, 'Lista de productos · ' . date('d/m/Y H:i')]);
-        $xl->addRow([]);
+        $xl->addRow([null, $this->detalle]);
         $xl->addRow(['Código', 'Nombre', 'Tipo', 'Descripción', 'Imagen', 'Cantidad'], null, XlsxWriter::HEADER);
         foreach ($items as $it) {
             $path = $this->imagePath($it);
@@ -58,7 +58,8 @@ final class Exporter
         </style></head><body>
         <table class="head"><tr>'
             . (is_file($this->logo) ? '<td style="width:95px"><img src="' . $this->dataUri($this->logo) . '" style="width:85px"></td>' : '')
-            . '<td><h1>' . $h($this->empresa) . '</h1><p>Lista de productos · ' . date('d/m/Y H:i') . '</p></td></tr></table>
+            . '<td><h1>' . $h($this->empresa) . '</h1><p>Lista de productos · ' . date('d/m/Y H:i') . '</p>'
+            . ($this->detalle !== '' ? '<p>' . $h($this->detalle) . '</p>' : '') . '</td></tr></table>
         <table class="items"><thead><tr><th>Código</th><th>Imagen</th><th>Producto</th><th>Descripción</th><th>Cant.</th></tr></thead>
         <tbody>' . $rows . '</tbody></table></body></html>';
 

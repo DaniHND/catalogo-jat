@@ -88,6 +88,13 @@
       <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>
       <input id="empresa" x-model="empresa" @input="guardar()" type="text" maxlength="120" placeholder="Escribe el nombre de la empresa"
              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label for="contacto" class="block text-sm font-medium mb-1 mt-3">Nombre de contacto</label>
+      <input id="contacto" x-model="contacto" @input="guardar()" type="text" maxlength="120" placeholder="Escribe el nombre del contacto"
+             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label class="flex items-center gap-2 mt-3 text-sm font-medium cursor-pointer">
+        <input type="checkbox" x-model="pilgrims" @change="guardar()" class="w-4 h-4 accent-blue-600">
+        Es para aparcería Pilgrim's
+      </label>
     </div>
     <div class="grid grid-cols-2 gap-2 mt-3" x-show="list.length">
       <button @click="exportar('xlsx')" :disabled="busy" class="rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 text-sm">Excel</button>
