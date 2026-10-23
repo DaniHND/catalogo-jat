@@ -11,17 +11,23 @@ use ZipArchive;
  */
 final class XlsxWriter
 {
+    public const NORMAL = 0;
+    public const HEADER = 1;
+    public const TITLE = 2;
+
     private array $rows = [];      // [ [valor, ...], ... ]
     private array $heights = [];   // fila (1-based) => alto en puntos
+    private array $styles = [];    // fila (1-based) => estilo
     private array $images = [];    // [ ['path','col','row','w','h'], ... ] col/row 0-based
 
     public function __construct(private array $colWidths = []) {}
 
-    public function addRow(array $cells, ?float $height = null): int
+    public function addRow(array $cells, ?float $height = null, int $style = self::NORMAL): int
     {
         $this->rows[] = array_values($cells);
         $n = count($this->rows);
         if ($height) $this->heights[$n] = $height;
+        $this->styles[$n] = $style;
         return $n;
     }
 
@@ -64,12 +70,14 @@ final class XlsxWriter
         $zip->addFromString('xl/_rels/workbook.xml.rels', $this->rels(['worksheet' => 'worksheets/sheet1.xml', 'styles' => 'styles.xml']));
         $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            . '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'
+            . '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'
+            . '<font><b/><sz val="14"/><name val="Calibri"/></font></fonts>'
             . '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
             . '<fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/></patternFill></fill></fills>'
             . '<borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs>'
-            . '<cellXfs count="2"><xf applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
-            . '<xf fontId="1" fillId="2" applyFont="1" applyFill="1"/></cellXfs></styleSheet>');
+            . '<cellXfs count="3"><xf applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+            . '<xf fontId="1" fillId="2" applyFont="1" applyFill="1"/>'
+            . '<xf fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs></styleSheet>');
         $zip->addFromString('xl/worksheets/sheet1.xml', $this->sheet($hasImg));
         if ($hasImg) {
             $zip->addFromString('xl/worksheets/_rels/sheet1.xml.rels', $this->rels(['drawing' => '../drawings/drawing1.xml']));
@@ -95,7 +103,7 @@ final class XlsxWriter
             $data .= '<row r="' . $n . '"' . $ht . '>';
             foreach ($cells as $c => $v) {
                 $ref = chr(65 + $c) . $n;
-                $s = $n === 1 ? '1' : '0';
+                $s = $this->styles[$n] ?? self::NORMAL;
                 if ($v === null || $v === '') {
                     $data .= '<c r="' . $ref . '" s="' . $s . '"/>';
                 } elseif (is_int($v) || is_float($v)) {
@@ -108,9 +116,19 @@ final class XlsxWriter
         }
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . $this->sheetViews()
             . ($cols ? "<cols>$cols</cols>" : '') . "<sheetData>$data</sheetData>"
             . ($hasImg ? '<drawing r:id="rId1"/>' : '') . '</worksheet>';
+    }
+
+    /** Congela los paneles debajo de la última fila de encabezado. */
+    private function sheetViews(): string
+    {
+        $header = array_keys($this->styles, self::HEADER);
+        if (!$header) return '';
+        $n = max($header);
+        return '<sheetViews><sheetView workbookViewId="0"><pane ySplit="' . $n . '" topLeftCell="A' . ($n + 1)
+            . '" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
     }
 
     private function drawing(): string

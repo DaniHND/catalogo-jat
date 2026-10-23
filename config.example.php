@@ -6,5 +6,5 @@ return [
         'user' => 'root',
         'pass' => '',
     ],
-    'empresa' => 'Mi Empresa',
+    'empresa' => 'Sistemas Agropecuarios JAT',
 ];

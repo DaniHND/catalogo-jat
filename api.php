@@ -45,7 +45,8 @@ try {
         case 'GET export':
             $items = $list->items();
             if (!$items) respond(['error' => 'La lista está vacía'], 400);
-            $ex = new Exporter(__DIR__ . '/uploads', $config['empresa']);
+            $empresa = mb_substr(trim($_GET['empresa'] ?? ''), 0, 120) ?: $config['empresa'];
+            $ex = new Exporter(__DIR__ . '/uploads', $empresa, __DIR__ . '/assets/logo-jat.png');
             ($_GET['format'] ?? '') === 'pdf' ? $ex->pdf($items) : $ex->xlsx($items);
         default:
             respond(['error' => 'Ruta no encontrada'], 404);

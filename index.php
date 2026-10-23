@@ -12,7 +12,10 @@
 
   <!-- Búsqueda y resultados -->
   <section class="lg:col-span-2">
-    <h1 class="text-xl font-bold mb-3">Catálogo de productos</h1>
+    <header class="flex items-center gap-3 mb-4">
+      <img src="assets/logo-jat.png" alt="JAT" class="h-12 w-auto">
+      <h1 class="text-xl font-bold">Catálogo de productos</h1>
+    </header>
     <div class="flex gap-2 mb-4">
       <input x-model="q" @input.debounce.300ms="buscar()" type="search" placeholder="Buscar por código o nombre…"
              class="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -67,9 +70,14 @@
       </template>
     </ul>
 
-    <div class="grid grid-cols-2 gap-2 mt-4" x-show="list.length">
-      <a href="api.php?r=export&format=xlsx" class="text-center rounded-lg bg-green-600 hover:bg-green-700 text-white py-2 text-sm">Excel</a>
-      <a href="api.php?r=export&format=pdf" class="text-center rounded-lg bg-red-600 hover:bg-red-700 text-white py-2 text-sm">PDF</a>
+    <div class="mt-4" x-show="list.length">
+      <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>
+      <input id="empresa" x-model="empresa" @input="guardarEmpresa()" type="text" maxlength="120" placeholder="Escribe el nombre de la empresa"
+             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div class="grid grid-cols-2 gap-2 mt-3" x-show="list.length">
+      <a :href="exportUrl('xlsx')" class="text-center rounded-lg bg-green-600 hover:bg-green-700 text-white py-2 text-sm">Excel</a>
+      <a :href="exportUrl('pdf')" class="text-center rounded-lg bg-red-600 hover:bg-red-700 text-white py-2 text-sm">PDF</a>
     </div>
   </aside>
 </div>
@@ -77,7 +85,13 @@
 <script>
 function catalogo() {
   return {
-    q: '', type: '', types: [], results: [], list: [], qtys: {}, loading: false,
+    q: '', type: '', types: [], results: [], list: [], qtys: {}, loading: false, empresa: '',
+    exportUrl(format) {
+      return 'api.php?' + new URLSearchParams({ r: 'export', format, empresa: this.empresa.trim() });
+    },
+    guardarEmpresa() {
+      try { localStorage.setItem('empresa', this.empresa); } catch (e) {}
+    },
     async api(r, opts = {}) {
       const res = await fetch('api.php?r=' + r, opts);
       const data = await res.json();
@@ -88,6 +102,7 @@ function catalogo() {
       return this.api(r, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     },
     async init() {
+      try { this.empresa = localStorage.getItem('empresa') || ''; } catch (e) {}
       this.types = await this.api('types');
       this.list = await this.api('list');
       this.buscar();

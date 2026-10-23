@@ -7,12 +7,17 @@ use Dompdf\Options;
 
 final class Exporter
 {
-    public function __construct(private string $uploadsDir, private string $empresa) {}
+    public function __construct(private string $uploadsDir, private string $empresa, private string $logo) {}
 
     public function xlsx(array $items): never
     {
-        $xl = new XlsxWriter([14, 30, 16, 45, 18, 10]);
-        $xl->addRow(['Código', 'Nombre', 'Tipo', 'Descripción', 'Imagen', 'Cantidad']);
+        $xl = new XlsxWriter([16, 30, 16, 45, 18, 10]);
+        $logo = is_file($this->logo);
+        $xl->addRow([null, $this->empresa], $logo ? 50 : 24, XlsxWriter::TITLE);
+        if ($logo) $xl->addImage($this->logo, 0, 1, 100);
+        $xl->addRow([null, 'Lista de productos · ' . date('d/m/Y H:i')]);
+        $xl->addRow([]);
+        $xl->addRow(['Código', 'Nombre', 'Tipo', 'Descripción', 'Imagen', 'Cantidad'], null, XlsxWriter::HEADER);
         foreach ($items as $it) {
             $path = $this->imagePath($it);
             $row = $xl->addRow([(string)$it['code'], $it['name'], $it['type'], (string)$it['description'], null, (int)$it['qty']], $path ? 60 : null);
@@ -36,8 +41,7 @@ final class Exporter
         foreach ($items as $it) {
             $img = '';
             if ($path = $this->imagePath($it)) {
-                $mime = mime_content_type($path) ?: 'image/png';
-                $img = '<img src="data:' . $mime . ';base64,' . base64_encode(file_get_contents($path)) . '" style="max-width:70px;max-height:70px">';
+                $img = '<img src="' . $this->dataUri($path) . '" style="max-width:70px;max-height:70px">';
             }
             $rows .= '<tr><td>' . $h($it['code']) . '</td><td>' . $img . '</td><td><b>' . $h($it['name']) . '</b><br>'
                 . '<small>' . $h($it['type']) . '</small></td><td>' . nl2br($h($it['description'])) . '</td>'
@@ -45,13 +49,17 @@ final class Exporter
         }
         $html = '<html><head><meta charset="utf-8"><style>
             body{font-family:DejaVu Sans,sans-serif;font-size:11px}
-            h1{font-size:16px;margin:0} p{color:#555;margin:2px 0 12px}
-            table{width:100%;border-collapse:collapse}
+            .head{width:100%;border-collapse:collapse;border-bottom:3px solid #ed1c24;margin-bottom:14px}
+            .head td{border:0;padding:0 0 8px}
+            h1{font-size:16px;margin:0} .head p{color:#555;margin:2px 0 0}
+            .items{width:100%;border-collapse:collapse}
             th{background:#1f2937;color:#fff;padding:6px;text-align:left}
-            td{border-bottom:1px solid #ddd;padding:6px;vertical-align:middle}
+            .items td{border-bottom:1px solid #ddd;padding:6px;vertical-align:middle}
         </style></head><body>
-        <h1>' . $h($this->empresa) . ' — Lista de productos</h1><p>' . date('d/m/Y H:i') . '</p>
-        <table><thead><tr><th>Código</th><th>Imagen</th><th>Producto</th><th>Descripción</th><th>Cant.</th></tr></thead>
+        <table class="head"><tr>'
+            . (is_file($this->logo) ? '<td style="width:95px"><img src="' . $this->dataUri($this->logo) . '" style="width:85px"></td>' : '')
+            . '<td><h1>' . $h($this->empresa) . '</h1><p>Lista de productos · ' . date('d/m/Y H:i') . '</p></td></tr></table>
+        <table class="items"><thead><tr><th>Código</th><th>Imagen</th><th>Producto</th><th>Descripción</th><th>Cant.</th></tr></thead>
         <tbody>' . $rows . '</tbody></table></body></html>';
 
         $opt = new Options();
@@ -62,6 +70,11 @@ final class Exporter
         $pdf->render();
         $pdf->stream('lista-' . date('Ymd-His') . '.pdf', ['Attachment' => true]);
         exit;
+    }
+
+    private function dataUri(string $path): string
+    {
+        return 'data:' . (mime_content_type($path) ?: 'image/png') . ';base64,' . base64_encode(file_get_contents($path));
     }
 
     private function imagePath(array $it): ?string
