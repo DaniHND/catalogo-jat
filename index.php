@@ -109,8 +109,8 @@ function catalogo() {
       const empresa = this.empresa.trim() || <?= json_encode((require __DIR__ . '/config.php')['empresa'], JSON_UNESCAPED_UNICODE) ?>;
       const lineas = this.list.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
       const contacto = this.contacto.trim() ? `Contacto: ${this.contacto.trim()}\n` : '';
-      const pilgrims = `Aparcería Pilgrim's: ${this.pilgrims ? 'Sí' : 'No'}`;
-      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}`;
+      const pilgrims = this.pilgrims ? "Aparcería Pilgrim's\n" : '';
+      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}`;
       return 'https://wa.me/?text=' + encodeURIComponent(texto);
     },
     guardarEmpresa() {

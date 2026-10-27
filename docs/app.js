@@ -23,7 +23,7 @@ function store(key, value) {
 
 // Líneas de datos del pedido: contacto (si lo hay) y si es para aparcería Pilgrim's.
 function detalles(contacto, pilgrims) {
-  return [contacto ? 'Contacto: ' + contacto : null, "Aparcería Pilgrim's: " + (pilgrims ? 'Sí' : 'No')].filter(Boolean);
+  return [contacto ? 'Contacto: ' + contacto : null, pilgrims ? "Aparcería Pilgrim's" : null].filter(Boolean);
 }
 
 // items: [{code, name, type, description, qty, img}] donde img = {dataUrl, ext, width, height} | null
