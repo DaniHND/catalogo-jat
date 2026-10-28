@@ -87,6 +87,7 @@ function buildPdf(jsPDF, items, empresa, logo, info = []) {
     head: [['Código', 'Imagen', 'Producto', 'Descripción', 'Cant.']],
     body: items.map(it => [it.code, '', it.name + '\n' + it.type, it.description || '', String(it.qty)]),
     theme: 'grid',
+    rowPageBreak: 'avoid',
     styles: { fontSize: 8, cellPadding: 5, valign: 'middle', lineColor: [221, 221, 221], textColor: [31, 41, 55] },
     headStyles: { fillColor: [31, 41, 55], textColor: 255 },
     columnStyles: {
@@ -96,7 +97,7 @@ function buildPdf(jsPDF, items, empresa, logo, info = []) {
       4: { cellWidth: 36, halign: 'center' },
     },
     didDrawCell(data) {
-      const img = data.section === 'body' && data.column.index === 1 && items[data.row.index].img;
+      const img = data.section === 'body' && data.column.index === 1 && items[data.row.index]?.img;
       if (!img) return;
       const c = data.cell, max = Math.min(c.width, c.height) - 8;
       const s = max / Math.max(img.width, img.height), w = img.width * s, h = img.height * s;

@@ -57,8 +57,17 @@ def category(pno):
     return ""
 
 
-def image_clusters(page):
-    """Bloques de imagen agrupados cuando se superponen (fotos compuestas de varias piezas)."""
+def overlaps(a, b, ratio=0.3):
+    """Cierto si se superponen en una parte importante de la menor (no basta con que se rocen)."""
+    i = a & b
+    if i.is_empty:
+        return False
+    return i.get_area() >= ratio * min(a.get_area(), b.get_area())
+
+
+def page_images(page):
+    """Bloques de imagen de la página, uno por foto. Solo se fusionan las capas casi idénticas
+    (una dentro de la otra); piezas distintas que se tocan o se encimen quedan separadas."""
     rects = []
     for b in page.get_text("dict")["blocks"]:
         if b["type"] != 1:
@@ -72,7 +81,7 @@ def image_clusters(page):
         merged = False
         for i in range(len(rects)):
             for j in range(i + 1, len(rects)):
-                if (rects[i] + (-2, -2, 2, 2)).intersects(rects[j]):
+                if overlaps(rects[i], rects[j], 0.8):
                     rects[i] = rects[i] | rects[j]
                     del rects[j]
                     merged = True
@@ -82,26 +91,75 @@ def image_clusters(page):
     return rects
 
 
-def pick_image(text_rect, images):
-    best, best_score = None, None
+def image_score(text_rect, r):
+    """Menor es mejor; None si la imagen queda demasiado lejos del texto."""
     cy = (text_rect.y0 + text_rect.y1) / 2
-    for r in images:
-        icy = (r.y0 + r.y1) / 2
-        dy = abs(icy - cy)
-        dx = text_rect.x0 - r.x1  # >0 si la imagen está a la izquierda
-        if -10 <= dx <= 160 and dy <= max(45, r.height / 2 + 10):
-            score = dy * 1.5 + max(dx, 0)
-        else:
-            # respaldo: la imagen más cercana en cualquier dirección
-            ex = max(r.x0 - text_rect.x1, text_rect.x0 - r.x1, 0)
-            ey = max(r.y0 - text_rect.y1, text_rect.y0 - r.y1, 0)
-            dist = (ex ** 2 + ey ** 2) ** 0.5
-            if dist > 90:
+    icy = (r.y0 + r.y1) / 2
+    dy = abs(icy - cy)
+    dx = text_rect.x0 - r.x1  # >0 si la imagen está a la izquierda
+    if -30 <= dx <= 160 and dy <= max(45, r.height / 2 + 10):
+        return dy * 1.5 + max(dx, 0)
+    # respaldo: la imagen más cercana en cualquier dirección
+    ex = max(r.x0 - text_rect.x1, text_rect.x0 - r.x1, 0)
+    ey = max(r.y0 - text_rect.y1, text_rect.y0 - r.y1, 0)
+    dist = (ex ** 2 + ey ** 2) ** 0.5
+    return None if dist > 90 else 300 + dist
+
+
+def Rect_y(r, y0, y1):
+    return fitz.Rect(r.x0, y0, r.x1, y1)
+
+
+def assign_images(wanted, images):
+    """wanted: {codigo: rect del texto}. Cada foto se asigna a un solo producto, el que mejor
+    encaja (así no se repite la foto de la pieza vecina). A esa foto se le suman las piezas
+    superpuestas que ningún otro producto reclamó (fotos compuestas de varias piezas).
+    Si ya no quedan fotos libres se reutiliza la más cercana (productos que comparten foto)."""
+    scores = sorted((sc, code, i) for code, tr in wanted.items()
+                    for i, r in enumerate(images) if (sc := image_score(tr, r)) is not None)
+    owner = {}  # índice de foto -> código
+    chosen = {}  # código -> índice de foto
+    for sc, code, i in scores:
+        if code not in chosen and i not in owner:
+            chosen[code], owner[i] = i, code
+    out = {}
+    for code, i in chosen.items():
+        rect, members, grown = fitz.Rect(images[i]), {i}, True
+        while grown:
+            grown = False
+            for j, r in enumerate(images):
+                if j not in members and j not in owner and overlaps(rect, r):
+                    rect |= r
+                    members.add(j)
+                    grown = True
+        out[code] = rect
+    # fotos vecinas encimadas: recortar para que no se cuele un pedazo de la pieza de al lado
+    for code, i in chosen.items():
+        rect = out[code]
+        for j, c in owner.items():
+            o = images[j]
+            if c == code or not overlaps(rect, o, 0.0001) or not (min(rect.x1, o.x1) - max(rect.x0, o.x0)) > 4:
                 continue
-            score = 300 + dist
-        if best_score is None or score < best_score:
-            best, best_score = r, score
-    return best
+            if (rect.y0 + rect.y1) < (o.y0 + o.y1):
+                cut = Rect_y(rect, rect.y0, o.y0 - 2)
+            else:
+                cut = Rect_y(rect, o.y1 + 2, rect.y1)
+            if cut.height >= 0.4 * rect.height:
+                rect = cut
+        out[code] = rect
+    for sc, code, i in scores:
+        if code in out:
+            continue
+        if sc >= 300:
+            # foto lejana: mejor la del producto vecino en la misma fila (tabla de motores, p. ej.)
+            cy = (wanted[code].y0 + wanted[code].y1) / 2
+            near = [(abs((wanted[c].y0 + wanted[c].y1) / 2 - cy), c) for c in chosen if c in out
+                    and abs((wanted[c].y0 + wanted[c].y1) / 2 - cy) < 40]
+            if near:
+                out[code] = out[min(near)[1]]
+                continue
+        out[code] = images[i]
+    return out
 
 
 def page_spans(page):
@@ -197,7 +255,7 @@ def main(pdf_path):
         if not cat:
             continue
         page = doc[pno - 1]
-        images = image_clusters(page)
+        images = page_images(page)
         clean_page = None
         found = []
 
@@ -237,6 +295,7 @@ def main(pdf_path):
                 p["es"], p["en"], p["rect"] = nxt["es"], nxt["en"], p["rect"] | nxt["rect"]
 
         spans = None
+        entries = []  # (producto, rect de imagen ya conocido o None)
         for p in found:
             code = p["code"]
             name = join_lines(p["es"]) or join_lines(p["en"])
@@ -257,11 +316,17 @@ def main(pdf_path):
                     name = f"{title} ({row})" if row else title
                     en = ""
                     img_rect = image_above(images, p["code_rect"])
-            if not name or code in products:
+            if not name or code in products or any(e[0]["code"] == code for e in entries):
                 if not name:
                     print("SIN DESCRIPCION:", pno, code, file=sys.stderr)
                 continue
-            img_rect = img_rect or pick_image(p["rect"], images)
+            p.update(name=name, en=en)
+            entries.append((p, img_rect))
+
+        picked = assign_images({p["code"]: p["rect"] for p, r in entries if r is None}, images)
+        for p, img_rect in entries:
+            code, name, en = p["code"], p["name"], p["en"]
+            img_rect = img_rect or picked.get(code)
             image = None
             if img_rect is not None:
                 image = f"{code}.png"
