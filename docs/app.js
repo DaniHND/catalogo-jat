@@ -32,7 +32,7 @@ function detalles(contacto, pilgrims) {
 async function buildXlsx(ExcelJS, items, empresa, logo, info = []) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Lista', { views: [{ state: 'frozen', ySplit: 4 }] });
-  ws.columns = [16, 30, 16, 45, 18, 10].map(width => ({ width }));
+  ws.columns = [16, 45, 16, 18, 10].map(width => ({ width }));
 
   ws.getRow(1).height = logo ? 50 : 24;
   ws.getCell('B1').value = empresa;
@@ -47,7 +47,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = []) {
   }
 
   const head = ws.getRow(4);
-  head.values = ['Código', 'Nombre', 'Tipo', 'Descripción', 'Imagen', 'Cantidad'];
+  head.values = ['Código', 'Nombre', 'Tipo', 'Imagen', 'Cantidad'];
   head.eachCell(c => {
     c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
@@ -55,13 +55,13 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = []) {
 
   items.forEach((it, i) => {
     const row = ws.getRow(5 + i);
-    row.values = [it.code, it.name, it.type, it.description || '', null, it.qty];
+    row.values = [it.code, it.name, it.type, null, it.qty];
     row.alignment = { vertical: 'middle', wrapText: true };
     if (it.img) {
       row.height = 60;
       const id = wb.addImage({ base64: it.img.dataUrl, extension: it.img.ext });
       const s = 72 / Math.max(it.img.width, it.img.height);
-      ws.addImage(id, { tl: { col: 4.05, row: 4 + i + 0.05 }, ext: { width: it.img.width * s, height: it.img.height * s } });
+      ws.addImage(id, { tl: { col: 3.05, row: 4 + i + 0.05 }, ext: { width: it.img.width * s, height: it.img.height * s } });
     }
   });
   return wb.xlsx.writeBuffer();
@@ -84,8 +84,8 @@ function buildPdf(jsPDF, items, empresa, logo, info = []) {
   doc.autoTable({
     startY: 102,
     margin: { left: M, right: M },
-    head: [['Código', 'Imagen', 'Producto', 'Descripción', 'Cant.']],
-    body: items.map(it => [it.code, '', it.name + '\n' + it.type, it.description || '', String(it.qty)]),
+    head: [['Código', 'Imagen', 'Producto', 'Cant.']],
+    body: items.map(it => [it.code, '', it.name + '\n' + it.type, String(it.qty)]),
     theme: 'grid',
     rowPageBreak: 'avoid',
     styles: { fontSize: 8, cellPadding: 5, valign: 'middle', lineColor: [221, 221, 221], textColor: [31, 41, 55] },
@@ -93,8 +93,8 @@ function buildPdf(jsPDF, items, empresa, logo, info = []) {
     columnStyles: {
       0: { cellWidth: 72 },
       1: { cellWidth: 64, minCellHeight: 58 },
-      2: { cellWidth: 150, fontStyle: 'bold' },
-      4: { cellWidth: 36, halign: 'center' },
+      2: { fontStyle: 'bold' },
+      3: { cellWidth: 36, halign: 'center' },
     },
     didDrawCell(data) {
       const img = data.section === 'body' && data.column.index === 1 && items[data.row.index]?.img;
