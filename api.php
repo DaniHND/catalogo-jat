@@ -47,11 +47,12 @@ try {
             if (!$items) respond(['error' => 'La lista está vacía'], 400);
             $empresa = mb_substr(trim($_GET['empresa'] ?? ''), 0, 120) ?: $config['empresa'];
             $contacto = mb_substr(trim($_GET['contacto'] ?? ''), 0, 120);
+            $comentario = mb_substr(trim($_GET['comentario'] ?? ''), 0, 500);
             $partes = [];
             if ($contacto !== '') $partes[] = "Contacto: $contacto";
             if (($_GET['pilgrims'] ?? '') === '1') $partes[] = "Aparcería Pilgrim's";
             $detalle = implode(' · ', $partes);
-            $ex = new Exporter(__DIR__ . '/uploads', $empresa, __DIR__ . '/assets/logo-jat.png', $detalle);
+            $ex = new Exporter(__DIR__ . '/uploads', $empresa, __DIR__ . '/assets/logo-jat.png', $detalle, $comentario);
             ($_GET['format'] ?? '') === 'pdf' ? $ex->pdf($items) : $ex->xlsx($items);
         default:
             respond(['error' => 'Ruta no encontrada'], 404);

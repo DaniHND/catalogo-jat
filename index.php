@@ -77,6 +77,9 @@
       <label for="contacto" class="block text-sm font-medium mb-1 mt-3">Nombre de contacto</label>
       <input id="contacto" x-model="contacto" @input="guardarEmpresa()" type="text" maxlength="120" placeholder="Escribe el nombre del contacto"
              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label for="comentario" class="block text-sm font-medium mb-1 mt-3">Comentario</label>
+      <textarea id="comentario" x-model="comentario" @input="guardarEmpresa()" rows="3" maxlength="500" placeholder="Escribe un comentario (aparecerá al final de la lista)"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
       <label class="flex items-center gap-2 mt-3 text-sm font-medium cursor-pointer">
         <input type="checkbox" x-model="pilgrims" @change="guardarEmpresa()" class="w-4 h-4 accent-blue-600">
         Es para aparcería Pilgrim's
@@ -97,10 +100,10 @@
 <script>
 function catalogo() {
   return {
-    q: '', type: '', types: [], results: [], list: [], qtys: {}, loading: false, empresa: '', contacto: '', pilgrims: false,
+    q: '', type: '', types: [], results: [], list: [], qtys: {}, loading: false, empresa: '', contacto: '', comentario: '', pilgrims: false,
     exportUrl(format) {
       return 'api.php?' + new URLSearchParams({
-        r: 'export', format, empresa: this.empresa.trim(), contacto: this.contacto.trim(), pilgrims: this.pilgrims ? '1' : '0',
+        r: 'export', format, empresa: this.empresa.trim(), contacto: this.contacto.trim(), comentario: this.comentario.trim(), pilgrims: this.pilgrims ? '1' : '0',
       });
     },
     whatsappUrl() {
@@ -110,13 +113,16 @@ function catalogo() {
       const lineas = this.list.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
       const contacto = this.contacto.trim() ? `Contacto: ${this.contacto.trim()}\n` : '';
       const pilgrims = this.pilgrims ? "Aparcería Pilgrim's\n" : '';
-      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}`;
+      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}${this.comentario.trim() ? `
+
+Comentario: ${this.comentario.trim()}` : ''}`;
       return 'https://wa.me/?text=' + encodeURIComponent(texto);
     },
     guardarEmpresa() {
       try {
         localStorage.setItem('empresa', this.empresa);
         localStorage.setItem('contacto', this.contacto);
+        localStorage.setItem('comentario', this.comentario);
         localStorage.setItem('pilgrims', this.pilgrims ? '1' : '');
       } catch (e) {}
     },
@@ -133,6 +139,7 @@ function catalogo() {
       try {
         this.empresa = localStorage.getItem('empresa') || '';
         this.contacto = localStorage.getItem('contacto') || '';
+        this.comentario = localStorage.getItem('comentario') || '';
         this.pilgrims = localStorage.getItem('pilgrims') === '1';
       } catch (e) {}
       this.types = await this.api('types');

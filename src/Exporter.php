@@ -7,7 +7,7 @@ use Dompdf\Options;
 
 final class Exporter
 {
-    public function __construct(private string $uploadsDir, private string $empresa, private string $logo, private string $detalle = '') {}
+    public function __construct(private string $uploadsDir, private string $empresa, private string $logo, private string $detalle = '', private string $comentario = '') {}
 
     public function xlsx(array $items): never
     {
@@ -22,6 +22,11 @@ final class Exporter
             $path = $this->imagePath($it);
             $row = $xl->addRow([(string)$it['code'], $it['name'], $it['type'], null, (int)$it['qty']], $path ? 60 : null);
             if ($path) $xl->addImage($path, 3, $row, 72);
+        }
+
+        if ($this->comentario !== '') {
+            $xl->addRow([null]);
+            $xl->addRow(['Comentario', $this->comentario]);
         }
 
         $tmp = tempnam(sys_get_temp_dir(), 'xlsx');
@@ -55,13 +60,16 @@ final class Exporter
             .items{width:100%;border-collapse:collapse}
             th{background:#1f2937;color:#fff;padding:6px;text-align:left}
             .items td{border-bottom:1px solid #ddd;padding:6px;vertical-align:middle}
+            .nota{margin-top:14px;padding:8px;border:1px solid #ddd}
         </style></head><body>
         <table class="head"><tr>'
             . (is_file($this->logo) ? '<td style="width:95px"><img src="' . $this->dataUri($this->logo) . '" style="width:85px"></td>' : '')
             . '<td><h1>' . $h($this->empresa) . '</h1><p>Lista de productos · ' . date('d/m/Y H:i') . '</p>'
             . ($this->detalle !== '' ? '<p>' . $h($this->detalle) . '</p>' : '') . '</td></tr></table>
         <table class="items"><thead><tr><th>Código</th><th>Imagen</th><th>Producto</th><th>Cant.</th></tr></thead>
-        <tbody>' . $rows . '</tbody></table></body></html>';
+        <tbody>' . $rows . '</tbody></table>'
+            . ($this->comentario !== '' ? '<p class="nota"><b>Comentario:</b> ' . nl2br($h($this->comentario)) . '</p>' : '')
+            . '</body></html>';
 
         $opt = new Options();
         $opt->set('isRemoteEnabled', false);

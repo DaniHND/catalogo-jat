@@ -91,6 +91,9 @@
       <label for="contacto" class="block text-sm font-medium mb-1 mt-3">Nombre de contacto</label>
       <input id="contacto" x-model="contacto" @input="guardar()" type="text" maxlength="120" placeholder="Escribe el nombre del contacto"
              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label for="comentario" class="block text-sm font-medium mb-1 mt-3">Comentario</label>
+      <textarea id="comentario" x-model="comentario" @input="guardar()" rows="3" maxlength="500" placeholder="Escribe un comentario (aparecerá al final de la lista)"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
       <label class="flex items-center gap-2 mt-3 text-sm font-medium cursor-pointer">
         <input type="checkbox" x-model="pilgrims" @change="guardar()" class="w-4 h-4 accent-blue-600">
         Es para aparcería Pilgrim's

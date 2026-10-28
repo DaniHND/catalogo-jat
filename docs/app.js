@@ -29,7 +29,7 @@ function detalles(contacto, pilgrims) {
 // items: [{code, name, type, description, qty, img}] donde img = {dataUrl, ext, width, height} | null
 // logo:  {dataUrl, ext, width, height} | null
 // info:  líneas de detalles()
-async function buildXlsx(ExcelJS, items, empresa, logo, info = []) {
+async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = '') {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Lista', { views: [{ state: 'frozen', ySplit: 4 }] });
   ws.columns = [16, 45, 16, 18, 10].map(width => ({ width }));
@@ -64,10 +64,18 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = []) {
       ws.addImage(id, { tl: { col: 3.05, row: 4 + i + 0.05 }, ext: { width: it.img.width * s, height: it.img.height * s } });
     }
   });
+  if (comentario) {
+    const r = ws.getRow(6 + items.length);
+    r.getCell(1).value = 'Comentario';
+    r.getCell(1).font = { bold: true };
+    r.getCell(2).value = comentario;
+    r.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+    r.height = Math.max(20, 15 * Math.ceil(comentario.length / 45));
+  }
   return wb.xlsx.writeBuffer();
 }
 
-function buildPdf(jsPDF, items, empresa, logo, info = []) {
+function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const W = doc.internal.pageSize.getWidth(), M = 40;
   let x = M;
@@ -104,12 +112,23 @@ function buildPdf(jsPDF, items, empresa, logo, info = []) {
       doc.addImage(img.dataUrl, img.ext.toUpperCase(), c.x + (c.width - w) / 2, c.y + (c.height - h) / 2, w, h, undefined, 'FAST');
     },
   });
+  if (comentario) {
+    const H = doc.internal.pageSize.getHeight();
+    doc.setFont('helvetica', 'normal').setFontSize(9);
+    const lines = doc.splitTextToSize(comentario, W - 2 * M);
+    let y = doc.lastAutoTable.finalY + 20;
+    if (y + 14 + lines.length * 12 > H - M) { doc.addPage(); y = M; }
+    doc.setFont('helvetica', 'bold').setTextColor(17, 24, 39).text('Comentario:', M, y);
+    doc.setFont('helvetica', 'normal').setTextColor(55, 65, 81).text(lines, M, y + 14);
+  }
   return doc;
 }
 
-function mensajeWhatsapp(items, empresa, info = []) {
+function mensajeWhatsapp(items, empresa, info = [], comentario = '') {
   const lineas = items.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
-  return `*Lista de productos - ${empresa}*\n${[fecha(), ...info].join('\n')}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}`;
+  return `*Lista de productos - ${empresa}*\n${[fecha(), ...info].join('\n')}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}${comentario ? `
+
+Comentario: ${comentario}` : ''}`;
 }
 
 /* ---------- Interfaz ---------- */
@@ -146,6 +165,7 @@ function catalogo() {
     list: (store('lista') || []).filter(i => byCode[i.code]),
     empresa: store('empresa') || '',
     contacto: store('contacto') || '',
+    comentario: store('comentario') || '',
     pilgrims: store('pilgrims') === true,
 
     init() {},
@@ -159,11 +179,11 @@ function catalogo() {
     },
     listItems() { return this.list.map(i => ({ ...byCode[i.code], qty: i.qty })); },
     whatsappUrl() {
-      return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT, this.info()));
+      return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT, this.info(), this.comentario.trim()));
     },
     guardar() {
       store('lista', this.list); store('empresa', this.empresa);
-      store('contacto', this.contacto); store('pilgrims', this.pilgrims);
+      store('contacto', this.contacto); store('comentario', this.comentario); store('pilgrims', this.pilgrims);
     },
     agregar(p) {
       const qty = Math.max(1, parseInt(this.qtys[p.code]) || 1);
@@ -190,10 +210,10 @@ function catalogo() {
         })));
         const nombre = 'lista-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
         if (format === 'xlsx') {
-          const buf = await buildXlsx(window.ExcelJS, items, empresa, logo, this.info());
+          const buf = await buildXlsx(window.ExcelJS, items, empresa, logo, this.info(), this.comentario.trim());
           descargar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nombre + '.xlsx');
         } else {
-          descargar(buildPdf(window.jspdf.jsPDF, items, empresa, logo, this.info()).output('blob'), nombre + '.pdf');
+          descargar(buildPdf(window.jspdf.jsPDF, items, empresa, logo, this.info(), this.comentario.trim()).output('blob'), nombre + '.pdf');
         }
       } catch (e) {
         console.error(e);
