@@ -119,7 +119,7 @@ function catalogo() {
       const lineas = this.list.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}${it.price > 0 ? `\n    Precio: ${this.money(it.price)} · Total: ${this.money(it.price * it.qty)}` : ''}`);
       const contacto = this.contacto.trim() ? `Contacto: ${this.contacto.trim()}\n` : '';
       const pilgrims = this.pilgrims ? "Aparcería Pilgrim's\n" : '';
-      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}${this.total() > 0 ? `\nPrecio total: ${this.money(this.total())}` : ''}${this.comentario.trim() ? `
+      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}${this.total() > 0 ? `\nPrecio total sin IVA: ${this.money(this.total())}` : ''}${this.comentario.trim() ? `
 
 Comentario: ${this.comentario.trim()}` : ''}`;
       return 'https://wa.me/?text=' + encodeURIComponent(texto);
