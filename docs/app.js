@@ -26,13 +26,17 @@ function detalles(contacto, pilgrims) {
   return [contacto ? 'Contacto: ' + contacto : null, pilgrims ? "Aparcería Pilgrim's" : null].filter(Boolean);
 }
 
-// items: [{code, name, type, description, qty, img}] donde img = {dataUrl, ext, width, height} | null
+const redondear = n => Math.round(n * 100) / 100;
+const dinero = n => Number(n).toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const totalLista = items => redondear(items.reduce((s, it) => s + (it.price || 0) * it.qty, 0));
+
+// items: [{code, name, type, description, qty, price, img}] donde img = {dataUrl, ext, width, height} | null
 // logo:  {dataUrl, ext, width, height} | null
 // info:  líneas de detalles()
 async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = '') {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Lista', { views: [{ state: 'frozen', ySplit: 4 }] });
-  ws.columns = [16, 45, 16, 18, 10].map(width => ({ width }));
+  ws.columns = [16, 45, 16, 18, 10, 16, 16].map(width => ({ width }));
 
   ws.getRow(1).height = logo ? 50 : 24;
   ws.getCell('B1').value = empresa;
@@ -47,7 +51,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
   }
 
   const head = ws.getRow(4);
-  head.values = ['Código', 'Nombre', 'Tipo', 'Imagen', 'Cantidad'];
+  head.values = ['Código', 'Nombre', 'Tipo', 'Imagen', 'Cantidad', 'Precio unitario', 'Precio total'];
   head.eachCell(c => {
     c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
@@ -55,7 +59,8 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
 
   items.forEach((it, i) => {
     const row = ws.getRow(5 + i);
-    row.values = [it.code, it.name, it.type, null, it.qty];
+    row.values = [it.code, it.name, it.type, null, it.qty, it.price > 0 ? it.price : null, it.price > 0 ? redondear(it.price * it.qty) : null];
+    row.getCell(6).numFmt = row.getCell(7).numFmt = '#,##0.00';
     row.alignment = { vertical: 'middle', wrapText: true };
     if (it.img) {
       row.height = 60;
@@ -64,8 +69,16 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
       ws.addImage(id, { tl: { col: 3.05, row: 4 + i + 0.05 }, ext: { width: it.img.width * s, height: it.img.height * s } });
     }
   });
-  if (comentario) {
+  const total = totalLista(items);
+  if (total > 0) {
     const r = ws.getRow(6 + items.length);
+    r.getCell(6).value = 'Precio total';
+    r.getCell(7).value = total;
+    r.getCell(7).numFmt = '#,##0.00';
+    r.getCell(6).font = r.getCell(7).font = { bold: true };
+  }
+  if (comentario) {
+    const r = ws.getRow(total > 0 ? 8 + items.length : 6 + items.length);
     r.getCell(1).value = 'Comentario';
     r.getCell(1).font = { bold: true };
     r.getCell(2).value = comentario;
@@ -92,8 +105,9 @@ function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
   doc.autoTable({
     startY: 102,
     margin: { left: M, right: M },
-    head: [['Código', 'Imagen', 'Producto', 'Cant.']],
-    body: items.map(it => [it.code, '', it.name + '\n' + it.type, String(it.qty)]),
+    head: [['Código', 'Imagen', 'Producto', 'Cant.', 'P. unit.', 'Total']],
+    body: items.map(it => [it.code, '', it.name + '\n' + it.type, String(it.qty),
+      it.price > 0 ? dinero(it.price) : '-', it.price > 0 ? dinero(it.price * it.qty) : '-']),
     theme: 'grid',
     rowPageBreak: 'avoid',
     styles: { fontSize: 8, cellPadding: 5, valign: 'middle', lineColor: [221, 221, 221], textColor: [31, 41, 55] },
@@ -103,6 +117,8 @@ function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
       1: { cellWidth: 64, minCellHeight: 58 },
       2: { fontStyle: 'bold' },
       3: { cellWidth: 36, halign: 'center' },
+      4: { cellWidth: 52, halign: 'right' },
+      5: { cellWidth: 58, halign: 'right' },
     },
     didDrawCell(data) {
       const img = data.section === 'body' && data.column.index === 1 && items[data.row.index]?.img;
@@ -112,11 +128,17 @@ function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
       doc.addImage(img.dataUrl, img.ext.toUpperCase(), c.x + (c.width - w) / 2, c.y + (c.height - h) / 2, w, h, undefined, 'FAST');
     },
   });
+  const H = doc.internal.pageSize.getHeight();
+  let y = doc.lastAutoTable.finalY + 20;
+  const total = totalLista(items);
+  if (total > 0) {
+    if (y + 14 > H - M) { doc.addPage(); y = M; }
+    doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 24, 39).text('Precio total: ' + dinero(total), W - M, y, { align: 'right' });
+    y += 24;
+  }
   if (comentario) {
-    const H = doc.internal.pageSize.getHeight();
     doc.setFont('helvetica', 'normal').setFontSize(9);
     const lines = doc.splitTextToSize(comentario, W - 2 * M);
-    let y = doc.lastAutoTable.finalY + 20;
     if (y + 14 + lines.length * 12 > H - M) { doc.addPage(); y = M; }
     doc.setFont('helvetica', 'bold').setTextColor(17, 24, 39).text('Comentario:', M, y);
     doc.setFont('helvetica', 'normal').setTextColor(55, 65, 81).text(lines, M, y + 14);
@@ -125,8 +147,9 @@ function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
 }
 
 function mensajeWhatsapp(items, empresa, info = [], comentario = '') {
-  const lineas = items.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
-  return `*Lista de productos - ${empresa}*\n${[fecha(), ...info].join('\n')}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}${comentario ? `
+  const lineas = items.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}${it.price > 0 ? `\n    Precio: ${dinero(it.price)} · Total: ${dinero(it.price * it.qty)}` : ''}`);
+  const total = totalLista(items);
+  return `*Lista de productos - ${empresa}*\n${[fecha(), ...info].join('\n')}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}${total > 0 ? `\nPrecio total: ${dinero(total)}` : ''}${comentario ? `
 
 Comentario: ${comentario}` : ''}`;
 }
@@ -160,7 +183,7 @@ function catalogo() {
   const index = all.map(p => ({ p, text: norm([p.code, p.name, p.type, p.description].join(' ')) }));
 
   return {
-    q: '', type: '', results: all, limit: 40, qtys: {}, busy: false, error: '', confirmClear: false,
+    q: '', type: '', results: all, limit: 40, qtys: {}, prices: {}, busy: false, error: '', confirmClear: false,
     types: [...new Set(all.map(p => p.type))].sort(),
     list: (store('lista') || []).filter(i => byCode[i.code]),
     empresa: store('empresa') || '',
@@ -177,7 +200,9 @@ function catalogo() {
         .map(({ p }) => p);
       this.limit = 40;
     },
-    listItems() { return this.list.map(i => ({ ...byCode[i.code], qty: i.qty })); },
+    listItems() { return this.list.map(i => ({ ...byCode[i.code], qty: i.qty, price: i.price || 0 })); },
+    money: dinero,
+    total() { return totalLista(this.listItems()); },
     whatsappUrl() {
       return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT, this.info(), this.comentario.trim()));
     },
@@ -188,13 +213,16 @@ function catalogo() {
     agregar(p) {
       const qty = Math.max(1, parseInt(this.qtys[p.code]) || 1);
       const found = this.list.find(i => i.code === p.code);
-      found ? found.qty += qty : this.list.push({ code: p.code, qty });
-      this.qtys[p.code] = '';
+      const price = Math.max(0, parseFloat(this.prices[p.code]) || 0);
+      if (found) { found.qty += qty; if (price) found.price = price; }
+      else this.list.push({ code: p.code, qty, price });
+      this.qtys[p.code] = this.prices[p.code] = '';
       this.guardar();
     },
-    actualizar(code, qty) {
+    actualizar(code, { qty, price }) {
       const found = this.list.find(i => i.code === code);
-      if (found) found.qty = Math.max(1, parseInt(qty) || 1);
+      if (found && qty !== undefined) found.qty = Math.max(1, parseInt(qty) || 1);
+      if (found && price !== undefined) found.price = Math.max(0, parseFloat(price) || 0);
       this.guardar();
     },
     quitar(code) { this.list = this.list.filter(i => i.code !== code); this.guardar(); },

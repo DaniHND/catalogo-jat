@@ -31,10 +31,10 @@ try {
         case 'GET list':
             respond($list->items());
         case 'POST list/add':
-            $list->add((int)($body['product_id'] ?? 0), (int)($body['qty'] ?? 1));
+            $list->add((int)($body['product_id'] ?? 0), (int)($body['qty'] ?? 1), ($body['price'] ?? '') !== '' ? (float)$body['price'] : null);
             respond($list->items());
         case 'POST list/update':
-            $list->set((int)($body['product_id'] ?? 0), (int)($body['qty'] ?? 1));
+            $list->set((int)($body['product_id'] ?? 0), (int)($body['qty'] ?? 1), (float)($body['price'] ?? 0));
             respond($list->items());
         case 'POST list/remove':
             $list->remove((int)($body['product_id'] ?? 0));

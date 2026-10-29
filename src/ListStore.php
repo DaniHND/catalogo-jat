@@ -2,21 +2,33 @@
 declare(strict_types=1);
 namespace App;
 
-/** Lista del usuario guardada en sesión: [product_id => cantidad] */
+/** Lista del usuario guardada en sesión: [product_id => ['qty' => cantidad, 'price' => precio unitario]] */
 final class ListStore
 {
     public function __construct(private ProductRepository $repo) {}
 
-    public function set(int $id, int $qty): void
+    /** $price null conserva el precio actual. */
+    public function set(int $id, int $qty, ?float $price = null): void
     {
         if ($qty < 1) { $this->remove($id); return; }
         if (!$this->repo->exists($id)) throw new \InvalidArgumentException('Producto no existe');
-        $_SESSION['list'][$id] = min($qty, 999999);
+        $_SESSION['list'][$id] = [
+            'qty' => min($qty, 999999),
+            'price' => $price === null ? $this->entry($id)['price'] : min(max($price, 0), 999999999),
+        ];
     }
 
-    public function add(int $id, int $qty): void
+    public function add(int $id, int $qty, ?float $price = null): void
     {
-        $this->set($id, ($_SESSION['list'][$id] ?? 0) + max(1, $qty));
+        $this->set($id, $this->entry($id)['qty'] + max(1, $qty), $price);
+    }
+
+    /** Compatible con listas antiguas guardadas como [id => cantidad]. */
+    private function entry(int $id): array
+    {
+        $e = $_SESSION['list'][$id] ?? null;
+        if (is_array($e)) return ['qty' => (int)$e['qty'], 'price' => (float)$e['price']];
+        return ['qty' => (int)$e, 'price' => 0.0];
     }
 
     public function remove(int $id): void { unset($_SESSION['list'][$id]); }
@@ -28,8 +40,8 @@ final class ListStore
         $raw = $_SESSION['list'] ?? [];
         $products = $this->repo->findMany(array_keys($raw));
         $items = [];
-        foreach ($raw as $id => $qty) {
-            if (isset($products[$id])) $items[] = $products[$id] + ['qty' => $qty];
+        foreach (array_keys($raw) as $id) {
+            if (isset($products[$id])) $items[] = $products[$id] + $this->entry($id);
         }
         return $items;
     }

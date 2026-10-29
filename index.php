@@ -38,8 +38,10 @@
             <h3 class="font-semibold leading-tight" x-text="p.name"></h3>
             <p class="text-sm text-slate-600 line-clamp-2" x-text="p.description"></p>
             <div class="flex items-center gap-2 mt-2">
-              <input type="number" min="1" x-model.number="qtys[p.id]" :placeholder="1"
+              <input type="number" min="1" x-model.number="qtys[p.id]" :placeholder="1" title="Cantidad"
                      class="w-16 rounded border border-slate-300 px-2 py-1 text-sm">
+              <input type="number" min="0" step="0.01" x-model.number="prices[p.id]" placeholder="Precio" title="Precio por unidad"
+                     class="w-20 rounded border border-slate-300 px-2 py-1 text-sm">
               <button @click="agregar(p)" class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1">Agregar</button>
             </div>
           </div>
@@ -63,12 +65,16 @@
             <p class="text-xs text-slate-500" x-text="i.code"></p>
             <p class="text-sm font-medium truncate" x-text="i.name"></p>
           </div>
-          <input type="number" min="1" :value="i.qty" @change="actualizar(i.id, $event.target.value)"
-                 class="w-16 rounded border border-slate-300 px-2 py-1 text-sm">
+          <input type="number" min="1" :value="i.qty" @change="actualizar(i.id, $event.target.value, i.price)" title="Cantidad"
+                 class="w-14 rounded border border-slate-300 px-2 py-1 text-sm">
+          <input type="number" min="0" step="0.01" :value="i.price || ''" placeholder="Precio" @change="actualizar(i.id, i.qty, $event.target.value)" title="Precio por unidad"
+                 class="w-20 rounded border border-slate-300 px-2 py-1 text-sm">
           <button @click="quitar(i.id)" class="text-red-600 text-lg leading-none" title="Quitar">&times;</button>
         </li>
       </template>
     </ul>
+
+    <p x-show="total() > 0" class="mt-3 text-right text-sm font-semibold">Total: <span x-text="money(total())"></span></p>
 
     <div class="mt-4" x-show="list.length">
       <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>
@@ -100,7 +106,7 @@
 <script>
 function catalogo() {
   return {
-    q: '', type: '', types: [], results: [], list: [], qtys: {}, loading: false, empresa: '', contacto: '', comentario: '', pilgrims: false,
+    q: '', type: '', types: [], results: [], list: [], qtys: {}, prices: {}, loading: false, empresa: '', contacto: '', comentario: '', pilgrims: false,
     exportUrl(format) {
       return 'api.php?' + new URLSearchParams({
         r: 'export', format, empresa: this.empresa.trim(), contacto: this.contacto.trim(), comentario: this.comentario.trim(), pilgrims: this.pilgrims ? '1' : '0',
@@ -110,14 +116,16 @@ function catalogo() {
       const d = new Date(), p = n => String(n).padStart(2, '0');
       const fecha = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
       const empresa = this.empresa.trim() || <?= json_encode((require __DIR__ . '/config.php')['empresa'], JSON_UNESCAPED_UNICODE) ?>;
-      const lineas = this.list.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}`);
+      const lineas = this.list.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}${it.price > 0 ? `\n    Precio: ${this.money(it.price)} · Total: ${this.money(it.price * it.qty)}` : ''}`);
       const contacto = this.contacto.trim() ? `Contacto: ${this.contacto.trim()}\n` : '';
       const pilgrims = this.pilgrims ? "Aparcería Pilgrim's\n" : '';
-      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}${this.comentario.trim() ? `
+      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}${this.total() > 0 ? `\nPrecio total: ${this.money(this.total())}` : ''}${this.comentario.trim() ? `
 
 Comentario: ${this.comentario.trim()}` : ''}`;
       return 'https://wa.me/?text=' + encodeURIComponent(texto);
     },
+    money(n) { return Number(n).toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
+    total() { return this.list.reduce((s, i) => s + i.price * i.qty, 0); },
     guardarEmpresa() {
       try {
         localStorage.setItem('empresa', this.empresa);
@@ -153,10 +161,10 @@ Comentario: ${this.comentario.trim()}` : ''}`;
       this.loading = false;
     },
     async agregar(p) {
-      this.list = await this.post('list/add', { product_id: p.id, qty: this.qtys[p.id] || 1 });
-      this.qtys[p.id] = '';
+      this.list = await this.post('list/add', { product_id: p.id, qty: this.qtys[p.id] || 1, price: this.prices[p.id] ?? '' });
+      this.qtys[p.id] = ''; this.prices[p.id] = '';
     },
-    async actualizar(id, qty) { this.list = await this.post('list/update', { product_id: id, qty: parseInt(qty) || 1 }); },
+    async actualizar(id, qty, price) { this.list = await this.post('list/update', { product_id: id, qty: parseInt(qty) || 1, price: parseFloat(price) || 0 }); },
     async quitar(id) { this.list = await this.post('list/remove', { product_id: id }); },
     async vaciar() { if (confirm('¿Vaciar la lista?')) this.list = await this.post('list/clear', {}); },
   };
