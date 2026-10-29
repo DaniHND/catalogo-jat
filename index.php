@@ -74,7 +74,7 @@
       </template>
     </ul>
 
-    <p x-show="total() > 0" class="mt-3 text-right text-sm font-semibold">Total: <span x-text="money(total())"></span></p>
+    <p x-show="total() > 0" class="mt-3 text-right text-sm font-semibold">Total sin IVA: <span x-text="money(total())"></span></p>
 
     <div class="mt-4" x-show="list.length">
       <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>

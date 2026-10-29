@@ -11,7 +11,7 @@ final class Exporter
 
     public function xlsx(array $items): never
     {
-        $xl = new XlsxWriter([16, 45, 16, 18, 10, 16, 16]);
+        $xl = new XlsxWriter([16, 45, 16, 18, 10, 22, 16]);
         $logo = is_file($this->logo);
         $xl->addRow([null, $this->empresa], $logo ? 50 : 24, XlsxWriter::TITLE);
         if ($logo) $xl->addImage($this->logo, 0, 1, 100);
@@ -30,7 +30,7 @@ final class Exporter
 
         if ($total > 0) {
             $xl->addRow([null]);
-            $xl->addRow([null, null, null, null, null, 'Precio total', [round($total, 2)]]);
+            $xl->addRow([null, null, null, null, null, 'Precio total sin IVA', [round($total, 2)]]);
         }
         if ($this->comentario !== '') {
             $xl->addRow([null]);
@@ -81,7 +81,7 @@ final class Exporter
             . ($this->detalle !== '' ? '<p>' . $h($this->detalle) . '</p>' : '') . '</td></tr></table>
         <table class="items"><thead><tr><th>Código</th><th>Imagen</th><th>Producto</th><th>Cant.</th><th>P. unit.</th><th>Total</th></tr></thead>
         <tbody>' . $rows . '</tbody></table>'
-            . ($total > 0 ? '<p style="text-align:right;font-size:13px"><b>Precio total: ' . $money($total) . '</b></p>' : '')
+            . ($total > 0 ? '<p style="text-align:right;font-size:13px"><b>Precio total sin IVA: ' . $money($total) . '</b></p>' : '')
             . ($this->comentario !== '' ? '<p class="nota"><b>Comentario:</b> ' . nl2br($h($this->comentario)) . '</p>' : '')
             . '</body></html>';
 

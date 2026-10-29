@@ -36,7 +36,7 @@ const totalLista = items => redondear(items.reduce((s, it) => s + (it.price || 0
 async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = '') {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Lista', { views: [{ state: 'frozen', ySplit: 4 }] });
-  ws.columns = [16, 45, 16, 18, 10, 16, 16].map(width => ({ width }));
+  ws.columns = [16, 45, 16, 18, 10, 22, 16].map(width => ({ width }));
 
   ws.getRow(1).height = logo ? 50 : 24;
   ws.getCell('B1').value = empresa;
@@ -72,7 +72,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
   const total = totalLista(items);
   if (total > 0) {
     const r = ws.getRow(6 + items.length);
-    r.getCell(6).value = 'Precio total';
+    r.getCell(6).value = 'Precio total sin IVA';
     r.getCell(7).value = total;
     r.getCell(7).numFmt = '"$"#,##0.00';
     r.getCell(6).font = r.getCell(7).font = { bold: true };
@@ -133,7 +133,7 @@ function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
   const total = totalLista(items);
   if (total > 0) {
     if (y + 14 > H - M) { doc.addPage(); y = M; }
-    doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 24, 39).text('Precio total: ' + dinero(total), W - M, y, { align: 'right' });
+    doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 24, 39).text('Precio total sin IVA: ' + dinero(total), W - M, y, { align: 'right' });
     y += 24;
   }
   if (comentario) {
