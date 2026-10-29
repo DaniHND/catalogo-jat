@@ -161,7 +161,7 @@ Comentario: ${this.comentario.trim()}` : ''}`;
       this.loading = false;
     },
     async agregar(p) {
-      this.list = await this.post('list/add', { product_id: p.id, qty: this.qtys[p.id] || 1, price: this.prices[p.id] ?? '' });
+      this.list = await this.post('list/add', { product_id: p.id, qty: this.qtys[p.id] || 0, price: this.prices[p.id] ?? '' });
       this.qtys[p.id] = ''; this.prices[p.id] = '';
     },
     async actualizar(id, qty, price) { this.list = await this.post('list/update', { product_id: id, qty: parseInt(qty) || 1, price: parseFloat(price) || 0 }); },

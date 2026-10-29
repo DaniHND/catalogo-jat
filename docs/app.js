@@ -211,11 +211,12 @@ function catalogo() {
       store('contacto', this.contacto); store('comentario', this.comentario); store('pilgrims', this.pilgrims);
     },
     agregar(p) {
-      const qty = Math.max(1, parseInt(this.qtys[p.code]) || 1);
+      const qty = Math.max(0, parseInt(this.qtys[p.code]) || 0);
       const found = this.list.find(i => i.code === p.code);
       const price = Math.max(0, parseFloat(this.prices[p.code]) || 0);
-      if (found) { found.qty += qty; if (price) found.price = price; }
-      else this.list.push({ code: p.code, qty, price });
+      // Si ya está en la lista, reemplaza la cantidad (y el precio si se indica) en vez de sumarla.
+      if (found) { if (qty) found.qty = qty; if (price) found.price = price; }
+      else this.list.push({ code: p.code, qty: qty || 1, price });
       this.qtys[p.code] = this.prices[p.code] = '';
       this.guardar();
     },

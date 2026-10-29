@@ -18,9 +18,10 @@ final class ListStore
         ];
     }
 
+    /** Si el producto ya está en la lista, reemplaza la cantidad (y el precio si se indica) en vez de sumarla. */
     public function add(int $id, int $qty, ?float $price = null): void
     {
-        $this->set($id, $this->entry($id)['qty'] + max(1, $qty), $price);
+        $this->set($id, $qty >= 1 ? $qty : max(1, $this->entry($id)['qty']), $price);
     }
 
     /** Compatible con listas antiguas guardadas como [id => cantidad]. */
