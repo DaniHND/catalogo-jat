@@ -70,14 +70,16 @@ final class XlsxWriter
         $zip->addFromString('xl/_rels/workbook.xml.rels', $this->rels(['worksheet' => 'worksheets/sheet1.xml', 'styles' => 'styles.xml']));
         $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/></numFmts>'
             . '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'
             . '<font><b/><sz val="14"/><name val="Calibri"/></font></fonts>'
             . '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
             . '<fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/></patternFill></fill></fills>'
             . '<borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs>'
-            . '<cellXfs count="3"><xf applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+            . '<cellXfs count="4"><xf applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
             . '<xf fontId="1" fillId="2" applyFont="1" applyFill="1"/>'
-            . '<xf fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs></styleSheet>');
+            . '<xf fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'
+            . '<xf numFmtId="164" applyNumberFormat="1" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs></styleSheet>');
         $zip->addFromString('xl/worksheets/sheet1.xml', $this->sheet($hasImg));
         if ($hasImg) {
             $zip->addFromString('xl/worksheets/_rels/sheet1.xml.rels', $this->rels(['drawing' => '../drawings/drawing1.xml']));
@@ -106,6 +108,8 @@ final class XlsxWriter
                 $s = $this->styles[$n] ?? self::NORMAL;
                 if ($v === null || $v === '') {
                     $data .= '<c r="' . $ref . '" s="' . $s . '"/>';
+                } elseif (is_array($v)) { // [monto] => celda en pesos
+                    $data .= '<c r="' . $ref . '" s="3"><v>' . $v[0] . '</v></c>';
                 } elseif (is_int($v) || is_float($v)) {
                     $data .= '<c r="' . $ref . '" s="' . $s . '"><v>' . $v . '</v></c>';
                 } else {

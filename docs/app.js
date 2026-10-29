@@ -27,7 +27,7 @@ function detalles(contacto, pilgrims) {
 }
 
 const redondear = n => Math.round(n * 100) / 100;
-const dinero = n => Number(n).toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dinero = n => '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const totalLista = items => redondear(items.reduce((s, it) => s + (it.price || 0) * it.qty, 0));
 
 // items: [{code, name, type, description, qty, price, img}] donde img = {dataUrl, ext, width, height} | null
@@ -60,7 +60,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
   items.forEach((it, i) => {
     const row = ws.getRow(5 + i);
     row.values = [it.code, it.name, it.type, null, it.qty, it.price > 0 ? it.price : null, it.price > 0 ? redondear(it.price * it.qty) : null];
-    row.getCell(6).numFmt = row.getCell(7).numFmt = '#,##0.00';
+    row.getCell(6).numFmt = row.getCell(7).numFmt = '"$"#,##0.00';
     row.alignment = { vertical: 'middle', wrapText: true };
     if (it.img) {
       row.height = 60;
@@ -74,7 +74,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
     const r = ws.getRow(6 + items.length);
     r.getCell(6).value = 'Precio total';
     r.getCell(7).value = total;
-    r.getCell(7).numFmt = '#,##0.00';
+    r.getCell(7).numFmt = '"$"#,##0.00';
     r.getCell(6).font = r.getCell(7).font = { bold: true };
   }
   if (comentario) {

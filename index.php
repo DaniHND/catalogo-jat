@@ -124,7 +124,7 @@ function catalogo() {
 Comentario: ${this.comentario.trim()}` : ''}`;
       return 'https://wa.me/?text=' + encodeURIComponent(texto);
     },
-    money(n) { return Number(n).toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
+    money(n) { return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
     total() { return this.list.reduce((s, i) => s + i.price * i.qty, 0); },
     guardarEmpresa() {
       try {

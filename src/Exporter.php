@@ -24,13 +24,13 @@ final class Exporter
             $line = $it['price'] * $it['qty'];
             $total += $line;
             $row = $xl->addRow([(string)$it['code'], $it['name'], $it['type'], null, (int)$it['qty'],
-                $it['price'] > 0 ? round($it['price'], 2) : null, $it['price'] > 0 ? round($line, 2) : null], $path ? 60 : null);
+                $it['price'] > 0 ? [round($it['price'], 2)] : null, $it['price'] > 0 ? [round($line, 2)] : null], $path ? 60 : null);
             if ($path) $xl->addImage($path, 3, $row, 72);
         }
 
         if ($total > 0) {
             $xl->addRow([null]);
-            $xl->addRow([null, null, null, null, null, 'Precio total', round($total, 2)]);
+            $xl->addRow([null, null, null, null, null, 'Precio total', [round($total, 2)]]);
         }
         if ($this->comentario !== '') {
             $xl->addRow([null]);
@@ -52,7 +52,7 @@ final class Exporter
         $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
         $rows = '';
         $total = 0.0;
-        $money = fn(float $n) => number_format($n, 2, '.', ',');
+        $money = fn(float $n) => '$' . number_format($n, 2, '.', ',');
         foreach ($items as $it) {
             $total += $it['price'] * $it['qty'];
             $img = '';
