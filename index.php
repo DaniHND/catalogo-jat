@@ -74,7 +74,14 @@
       </template>
     </ul>
 
-    <p x-show="total() > 0" class="mt-3 text-right text-sm font-semibold">Total sin IVA: <span x-text="money(total())"></span></p>
+    <p x-show="list.length" class="mt-3 text-right text-sm">IVA
+      <input type="number" min="0" max="100" step="0.01" x-model.number="iva" @input="guardarEmpresa()" title="Porcentaje de IVA"
+             class="w-16 rounded border border-slate-300 px-2 py-1 text-sm text-right"> %</p>
+    <div x-show="total() > 0" class="mt-1 text-right text-sm">
+      <p>Subtotal: <span x-text="money(total())"></span></p>
+      <p>IVA (<span x-text="iva || 0"></span>%): <span x-text="money(total() * (iva || 0) / 100)"></span></p>
+      <p class="font-semibold">Total: <span x-text="money(total() * (1 + (iva || 0) / 100))"></span></p>
+    </div>
 
     <div class="mt-4" x-show="list.length">
       <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>
@@ -106,10 +113,10 @@
 <script>
 function catalogo() {
   return {
-    q: '', type: '', types: [], results: [], list: [], qtys: {}, prices: {}, loading: false, empresa: '', contacto: '', comentario: '', pilgrims: false,
+    q: '', type: '', types: [], results: [], list: [], qtys: {}, prices: {}, loading: false, empresa: '', contacto: '', comentario: '', pilgrims: false, iva: 16,
     exportUrl(format) {
       return 'api.php?' + new URLSearchParams({
-        r: 'export', format, empresa: this.empresa.trim(), contacto: this.contacto.trim(), comentario: this.comentario.trim(), pilgrims: this.pilgrims ? '1' : '0',
+        r: 'export', format, empresa: this.empresa.trim(), contacto: this.contacto.trim(), comentario: this.comentario.trim(), pilgrims: this.pilgrims ? '1' : '0', iva: this.iva || 0,
       });
     },
     whatsappUrl() {
@@ -119,7 +126,7 @@ function catalogo() {
       const lineas = this.list.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}${it.price > 0 ? `\n    Precio: ${this.money(it.price)} · Total: ${this.money(it.price * it.qty)}` : ''}`);
       const contacto = this.contacto.trim() ? `Contacto: ${this.contacto.trim()}\n` : '';
       const pilgrims = this.pilgrims ? "Aparcería Pilgrim's\n" : '';
-      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}${this.total() > 0 ? `\nPrecio total sin IVA: ${this.money(this.total())}` : ''}${this.comentario.trim() ? `
+      const texto = `*Lista de productos - ${empresa}*\n${fecha}\n${contacto}${pilgrims}\n${lineas.join('\n')}\n\nTotal de productos: ${this.list.length}${this.total() > 0 ? `\nSubtotal: ${this.money(this.total())}\nIVA (${this.iva || 0}%): ${this.money(this.total() * (this.iva || 0) / 100)}\nTotal: ${this.money(this.total() * (1 + (this.iva || 0) / 100))}` : ''}${this.comentario.trim() ? `
 
 Comentario: ${this.comentario.trim()}` : ''}`;
       return 'https://wa.me/?text=' + encodeURIComponent(texto);
@@ -132,6 +139,7 @@ Comentario: ${this.comentario.trim()}` : ''}`;
         localStorage.setItem('contacto', this.contacto);
         localStorage.setItem('comentario', this.comentario);
         localStorage.setItem('pilgrims', this.pilgrims ? '1' : '');
+        localStorage.setItem('iva', this.iva);
       } catch (e) {}
     },
     async api(r, opts = {}) {
@@ -149,6 +157,7 @@ Comentario: ${this.comentario.trim()}` : ''}`;
         this.contacto = localStorage.getItem('contacto') || '';
         this.comentario = localStorage.getItem('comentario') || '';
         this.pilgrims = localStorage.getItem('pilgrims') === '1';
+        const iva = parseFloat(localStorage.getItem('iva')); if (!isNaN(iva)) this.iva = iva;
       } catch (e) {}
       this.types = await this.api('types');
       this.list = await this.api('list');

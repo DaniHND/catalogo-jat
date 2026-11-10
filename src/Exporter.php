@@ -7,7 +7,7 @@ use Dompdf\Options;
 
 final class Exporter
 {
-    public function __construct(private string $uploadsDir, private string $empresa, private string $logo, private string $detalle = '', private string $comentario = '') {}
+    public function __construct(private string $uploadsDir, private string $empresa, private string $logo, private string $detalle = '', private string $comentario = '', private float $iva = 16.0) {}
 
     public function xlsx(array $items): never
     {
@@ -30,7 +30,10 @@ final class Exporter
 
         if ($total > 0) {
             $xl->addRow([null]);
-            $xl->addRow([null, null, null, null, null, 'Precio total sin IVA', [round($total, 2)]]);
+            $monto = round($total * $this->iva / 100, 2);
+            $xl->addRow([null, null, null, null, null, 'Subtotal', [round($total, 2)]]);
+            $xl->addRow([null, null, null, null, null, 'IVA (' . $this->ivaTexto() . '%)', [$monto]]);
+            $xl->addRow([null, null, null, null, null, 'Total', [round($total + $monto, 2)]]);
         }
         if ($this->comentario !== '') {
             $xl->addRow([null]);
@@ -81,7 +84,9 @@ final class Exporter
             . ($this->detalle !== '' ? '<p>' . $h($this->detalle) . '</p>' : '') . '</td></tr></table>
         <table class="items"><thead><tr><th>Código</th><th>Imagen</th><th>Producto</th><th>Cant.</th><th>P. unit.</th><th>Total</th></tr></thead>
         <tbody>' . $rows . '</tbody></table>'
-            . ($total > 0 ? '<p style="text-align:right;font-size:13px"><b>Precio total sin IVA: ' . $money($total) . '</b></p>' : '')
+            . ($total > 0 ? '<p style="text-align:right;font-size:12px;line-height:1.6">Subtotal: ' . $money($total)
+                . '<br>IVA (' . $this->ivaTexto() . '%): ' . $money($total * $this->iva / 100)
+                . '<br><b style="font-size:13px">Total: ' . $money($total * (1 + $this->iva / 100)) . '</b></p>' : '')
             . ($this->comentario !== '' ? '<p class="nota"><b>Comentario:</b> ' . nl2br($h($this->comentario)) . '</p>' : '')
             . '</body></html>';
 
@@ -93,6 +98,11 @@ final class Exporter
         $pdf->render();
         $pdf->stream('lista-' . date('Ymd-His') . '.pdf', ['Attachment' => true]);
         exit;
+    }
+
+    private function ivaTexto(): string
+    {
+        return rtrim(rtrim(number_format($this->iva, 2, '.', ''), '0'), '.');
     }
 
     private function dataUri(string $path): string

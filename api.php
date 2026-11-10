@@ -52,7 +52,7 @@ try {
             if ($contacto !== '') $partes[] = "Contacto: $contacto";
             if (($_GET['pilgrims'] ?? '') === '1') $partes[] = "Aparcería Pilgrim's";
             $detalle = implode(' · ', $partes);
-            $ex = new Exporter(__DIR__ . '/uploads', $empresa, __DIR__ . '/assets/logo-jat.png', $detalle, $comentario);
+            $ex = new Exporter(__DIR__ . '/uploads', $empresa, __DIR__ . '/assets/logo-jat.png', $detalle, $comentario, max(0.0, min(100.0, (float)($_GET['iva'] ?? 16))));
             ($_GET['format'] ?? '') === 'pdf' ? $ex->pdf($items) : $ex->xlsx($items);
         default:
             respond(['error' => 'Ruta no encontrada'], 404);

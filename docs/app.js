@@ -29,11 +29,16 @@ function detalles(contacto, pilgrims) {
 const redondear = n => Math.round(n * 100) / 100;
 const dinero = n => '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const totalLista = items => redondear(items.reduce((s, it) => s + (it.price || 0) * it.qty, 0));
+// Subtotal, IVA y total con IVA (iva = porcentaje).
+const desglose = (items, iva) => {
+  const subtotal = totalLista(items), monto = redondear(subtotal * (iva || 0) / 100);
+  return { subtotal, monto, total: redondear(subtotal + monto) };
+};
 
 // items: [{code, name, type, description, qty, price, img}] donde img = {dataUrl, ext, width, height} | null
 // logo:  {dataUrl, ext, width, height} | null
 // info:  líneas de detalles()
-async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = '') {
+async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = '', iva = 16) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Lista', { views: [{ state: 'frozen', ySplit: 4 }] });
   ws.columns = [16, 45, 16, 18, 10, 22, 16].map(width => ({ width }));
@@ -69,16 +74,18 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
       ws.addImage(id, { tl: { col: 3.05, row: 4 + i + 0.05 }, ext: { width: it.img.width * s, height: it.img.height * s } });
     }
   });
-  const total = totalLista(items);
-  if (total > 0) {
-    const r = ws.getRow(6 + items.length);
-    r.getCell(6).value = 'Precio total sin IVA';
-    r.getCell(7).value = total;
-    r.getCell(7).numFmt = '"$"#,##0.00';
-    r.getCell(6).font = r.getCell(7).font = { bold: true };
+  const { subtotal, monto, total } = desglose(items, iva);
+  if (subtotal > 0) {
+    [['Subtotal', subtotal], [`IVA (${iva || 0}%)`, monto], ['Total', total]].forEach(([etiqueta, valor], k) => {
+      const r = ws.getRow(6 + items.length + k);
+      r.getCell(6).value = etiqueta;
+      r.getCell(7).value = valor;
+      r.getCell(7).numFmt = '"$"#,##0.00';
+      r.getCell(6).font = r.getCell(7).font = { bold: true };
+    });
   }
   if (comentario) {
-    const r = ws.getRow(total > 0 ? 8 + items.length : 6 + items.length);
+    const r = ws.getRow(subtotal > 0 ? 10 + items.length : 6 + items.length);
     r.getCell(1).value = 'Comentario';
     r.getCell(1).font = { bold: true };
     r.getCell(2).value = comentario;
@@ -88,7 +95,7 @@ async function buildXlsx(ExcelJS, items, empresa, logo, info = [], comentario = 
   return wb.xlsx.writeBuffer();
 }
 
-function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
+function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '', iva = 16) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const W = doc.internal.pageSize.getWidth(), M = 40;
   let x = M;
@@ -130,11 +137,14 @@ function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
   });
   const H = doc.internal.pageSize.getHeight();
   let y = doc.lastAutoTable.finalY + 20;
-  const total = totalLista(items);
-  if (total > 0) {
-    if (y + 14 > H - M) { doc.addPage(); y = M; }
-    doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 24, 39).text('Precio total sin IVA: ' + dinero(total), W - M, y, { align: 'right' });
-    y += 24;
+  const { subtotal, monto, total } = desglose(items, iva);
+  if (subtotal > 0) {
+    if (y + 44 > H - M) { doc.addPage(); y = M; }
+    doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(55, 65, 81);
+    doc.text('Subtotal: ' + dinero(subtotal), W - M, y, { align: 'right' });
+    doc.text(`IVA (${iva || 0}%): ` + dinero(monto), W - M, y + 14, { align: 'right' });
+    doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 24, 39).text('Total: ' + dinero(total), W - M, y + 30, { align: 'right' });
+    y += 54;
   }
   if (comentario) {
     doc.setFont('helvetica', 'normal').setFontSize(9);
@@ -146,10 +156,10 @@ function buildPdf(jsPDF, items, empresa, logo, info = [], comentario = '') {
   return doc;
 }
 
-function mensajeWhatsapp(items, empresa, info = [], comentario = '') {
+function mensajeWhatsapp(items, empresa, info = [], comentario = '', iva = 16) {
   const lineas = items.map((it, i) => `${i + 1}. ${it.code} - ${it.name}\n    Cantidad: ${it.qty}${it.price > 0 ? `\n    Precio: ${dinero(it.price)} · Total: ${dinero(it.price * it.qty)}` : ''}`);
-  const total = totalLista(items);
-  return `*Lista de productos - ${empresa}*\n${[fecha(), ...info].join('\n')}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}${total > 0 ? `\nPrecio total: ${dinero(total)}` : ''}${comentario ? `
+  const { subtotal, monto, total } = desglose(items, iva);
+  return `*Lista de productos - ${empresa}*\n${[fecha(), ...info].join('\n')}\n\n${lineas.join('\n')}\n\nTotal de productos: ${items.length}${subtotal > 0 ? `\nSubtotal: ${dinero(subtotal)}\nIVA (${iva || 0}%): ${dinero(monto)}\nTotal: ${dinero(total)}` : ''}${comentario ? `
 
 Comentario: ${comentario}` : ''}`;
 }
@@ -190,6 +200,7 @@ function catalogo() {
     contacto: store('contacto') || '',
     comentario: store('comentario') || '',
     pilgrims: store('pilgrims') === true,
+    iva: Number.isFinite(store('iva')) ? store('iva') : 16,
 
     init() {},
     info() { return detalles(this.contacto.trim(), this.pilgrims); },
@@ -204,11 +215,11 @@ function catalogo() {
     money: dinero,
     total() { return totalLista(this.listItems()); },
     whatsappUrl() {
-      return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT, this.info(), this.comentario.trim()));
+      return 'https://wa.me/?text=' + encodeURIComponent(mensajeWhatsapp(this.listItems(), this.empresa.trim() || EMPRESA_DEFAULT, this.info(), this.comentario.trim(), this.iva));
     },
     guardar() {
       store('lista', this.list); store('empresa', this.empresa);
-      store('contacto', this.contacto); store('comentario', this.comentario); store('pilgrims', this.pilgrims);
+      store('contacto', this.contacto); store('comentario', this.comentario); store('pilgrims', this.pilgrims); store('iva', Number(this.iva) || 0);
     },
     agregar(p) {
       const qty = Math.max(0, parseInt(this.qtys[p.code]) || 0);
@@ -239,10 +250,10 @@ function catalogo() {
         })));
         const nombre = 'lista-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
         if (format === 'xlsx') {
-          const buf = await buildXlsx(window.ExcelJS, items, empresa, logo, this.info(), this.comentario.trim());
+          const buf = await buildXlsx(window.ExcelJS, items, empresa, logo, this.info(), this.comentario.trim(), this.iva);
           descargar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nombre + '.xlsx');
         } else {
-          descargar(buildPdf(window.jspdf.jsPDF, items, empresa, logo, this.info(), this.comentario.trim()).output('blob'), nombre + '.pdf');
+          descargar(buildPdf(window.jspdf.jsPDF, items, empresa, logo, this.info(), this.comentario.trim(), this.iva).output('blob'), nombre + '.pdf');
         }
       } catch (e) {
         console.error(e);

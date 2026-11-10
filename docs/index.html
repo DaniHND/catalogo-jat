@@ -88,7 +88,14 @@
       </template>
     </ul>
 
-    <p x-show="total() > 0" class="mt-3 text-right text-sm font-semibold">Total sin IVA: <span x-text="money(total())"></span></p>
+    <p x-show="list.length" class="mt-3 text-right text-sm">IVA
+      <input type="number" min="0" max="100" step="0.01" x-model.number="iva" @input="guardar()" title="Porcentaje de IVA"
+             class="w-16 rounded border border-slate-300 px-2 py-1 text-sm text-right"> %</p>
+    <div x-show="total() > 0" class="mt-1 text-right text-sm">
+      <p>Subtotal: <span x-text="money(total())"></span></p>
+      <p>IVA (<span x-text="iva || 0"></span>%): <span x-text="money(total() * (iva || 0) / 100)"></span></p>
+      <p class="font-semibold">Total: <span x-text="money(total() * (1 + (iva || 0) / 100))"></span></p>
+    </div>
 
     <div class="mt-4" x-show="list.length">
       <label for="empresa" class="block text-sm font-medium mb-1">Nombre de la empresa</label>
